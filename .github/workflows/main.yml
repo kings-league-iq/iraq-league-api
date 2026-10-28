@@ -1,0 +1,12 @@
+name: Auto Update Data
+on:
+  schedule:
+    - cron: '*/30 * * * *' # كل 30 دقيقة
+jobs:
+  ping-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Standings
+        run: curl -s https://iraq-league-api.vercel.app/standings > /dev/null
+      - name: Ping Players
+        run: curl -s https://iraq-league-api.vercel.app/players > /dev/null
