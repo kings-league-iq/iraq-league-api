@@ -27,20 +27,31 @@ async function fetchStandingsFromGoal() {
         $('table').each((index, table) => {
             const headers = $(table).find('th').map((i, el) => $(el).text().trim()).get();
             
-            if (headers.length > 5 && headers.some(h => h.includes('نقاط') || h.includes('فريق'))) {
+            // البحث عن رقم العمود الذي يحتوي على كلمة "نقاط"
+            let pointsColumnIndex = -1;
+            headers.forEach((header, i) => {
+                if (header.includes('نقاط') || header.includes('Pts')) {
+                    pointsColumnIndex = i;
+                }
+            });
+
+            // إذا وجدنا الجدول الصحيح
+            if (headers.length > 5 && pointsColumnIndex !== -1) {
                 $(table).find('tbody tr').each((rowIndex, row) => {
                     const cells = $(row).find('td');
                     let team = "";
                     let pts = 0;
 
-                    // استخراج الاسم من العمود الثاني، والنقاط من العمود الأخير
                     cells.each((i, cell) => {
                         const text = $(cell).text().trim();
+                        
+                        // اسم الفريق عادة يكون في العمود الثاني
                         if (i === 1 && text.length > 2) {
-                            team = text; // اسم الفريق
+                            team = text;
                         }
-                        if (i === cells.length - 1) {
-                            // نستخرج الأرقام فقط من النص
+                        
+                        // النقاط نأخذها من العمود الذي حددناه
+                        if (i === pointsColumnIndex) {
                             const numbersOnly = text.replace(/[^0-9]/g, '');
                             if (numbersOnly !== '') pts = parseInt(numbersOnly);
                         }
@@ -83,7 +94,7 @@ app.get('/standings', async (req, res) => {
             return res.json({ source: 'cache', updatedAt: new Date().toISOString(), data: cachedStandings });
         }
         await delay(1000);
-        const standings = await fetchStandingsFromGoal();
+        const standings = await fetchStandingsForGoal();
         cache.set('standings', standings);
         res.json({ source: 'fresh', updatedAt: new Date().toISOString(), data: standings });
     } catch (error) {
