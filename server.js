@@ -22,43 +22,50 @@ async function fetchStandingsFromGoal() {
         });
 
         const $ = cheerio.load(data);
-        const standings = [];
+        let standings = [];
 
-        // الكود المحدث لقراءة الأعمدة بدقة
         $('table').each((index, table) => {
             const headers = $(table).find('th').map((i, el) => $(el).text().trim()).get();
             
-            // نتأكد أننا وجدنا الجدول الصحيح
             if (headers.length > 5 && headers.some(h => h.includes('نقاط') || h.includes('فريق'))) {
                 $(table).find('tbody tr').each((rowIndex, row) => {
                     const cells = $(row).find('td');
-                    
-                    // نجمع نصوص الخلايا فقط
-                    const texts = [];
+                    let team = "";
+                    let pts = 0;
+
+                    // استخراج الاسم من العمود الثاني، والنقاط من العمود الأخير
                     cells.each((i, cell) => {
-                        texts.push($(cell).text().trim());
+                        const text = $(cell).text().trim();
+                        if (i === 1 && text.length > 2) {
+                            team = text; // اسم الفريق
+                        }
+                        if (i === cells.length - 1) {
+                            // نستخرج الأرقام فقط من النص
+                            const numbersOnly = text.replace(/[^0-9]/g, '');
+                            if (numbersOnly !== '') pts = parseInt(numbersOnly);
+                        }
                     });
 
-                    if (texts.length >= 8) {
-                        // بناءً على موقع Goal، الترتيب عادة: [المركز, الفريق, لعب, فاز, تعادل, خسر, له, عليه, الفارق, النقاط]
-                        // سنحاول ترشيح الأرقام والنصوص
+                    if (team !== "" && !team.includes('الترتيب')) {
                         standings.push({
-                            pos: texts[0],
-                            team: texts[1],
-                            played: texts[2],
-                            won: texts[3],
-                            drawn: texts[4],
-                            lost: texts[5],
-                            goalsFor: texts[6] || '0',
-                            goalsAgainst: texts[7] || '0',
-                            goalDifference: texts[8] || '0',
-                            points: texts[texts.length - 1] // النقاط عادة تكون آخر عمود
+                            team: team,
+                            points: pts
                         });
                     }
                 });
-                return false; // توقف بعد الجدول الأول
+                return false;
             }
         });
+
+        // ترتيب الجدول تنازلياً حسب النقاط
+        standings.sort((a, b) => b.points - a.points);
+
+        // إضافة المركز بعد الترتيب
+        standings = standings.map((item, index) => ({
+            pos: index + 1,
+            team: item.team,
+            points: item.points
+        }));
 
         if (standings.length === 0) throw new Error('لم يتم العثور على جدول الترتيب');
         return standings;
@@ -83,8 +90,6 @@ app.get('/standings', async (req, res) => {
         res.status(500).json({ error: 'فشل جلب البيانات', message: error.message });
     }
 });
-
-app.get('/health', (req, res) => { res.json({ status: 'ok' }); });
 
 app.listen(PORT, () => {
     console.log(`✅ السيرفر يعمل على المنفذ ${PORT}`);
