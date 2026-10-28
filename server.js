@@ -15,7 +15,7 @@ async function fetchStandingsFromGoal() {
     try {
         const { data } = await axios.get(fallbackUrl, {
             headers: {
-                'User-Agent': 'IraqLeagueAPI/1.0 (Contact: your-email@example.com)',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 'Accept-Language': 'ar,en;q=0.9',
             },
             timeout: 10000,
@@ -24,27 +24,39 @@ async function fetchStandingsFromGoal() {
         const $ = cheerio.load(data);
         const standings = [];
 
+        // الكود المحدث لقراءة الأعمدة بدقة
         $('table').each((index, table) => {
             const headers = $(table).find('th').map((i, el) => $(el).text().trim()).get();
-            if (headers.some(h => h.includes('نقاط') || h.includes('فريق') || h.includes('Team'))) {
+            
+            // نتأكد أننا وجدنا الجدول الصحيح
+            if (headers.length > 5 && headers.some(h => h.includes('نقاط') || h.includes('فريق'))) {
                 $(table).find('tbody tr').each((rowIndex, row) => {
                     const cells = $(row).find('td');
-                    if (cells.length >= 9) {
+                    
+                    // نجمع نصوص الخلايا فقط
+                    const texts = [];
+                    cells.each((i, cell) => {
+                        texts.push($(cell).text().trim());
+                    });
+
+                    if (texts.length >= 8) {
+                        // بناءً على موقع Goal، الترتيب عادة: [المركز, الفريق, لعب, فاز, تعادل, خسر, له, عليه, الفارق, النقاط]
+                        // سنحاول ترشيح الأرقام والنصوص
                         standings.push({
-                            pos: $(cells[0]).text().trim(),
-                            team: $(cells[1]).text().trim(),
-                            played: $(cells[2]).text().trim(),
-                            won: $(cells[3]).text().trim(),
-                            drawn: $(cells[4]).text().trim(),
-                            lost: $(cells[5]).text().trim(),
-                            goalsFor: $(cells[6]).text().trim(),
-                            goalsAgainst: $(cells[7]).text().trim(),
-                            goalDifference: $(cells[8]).text().trim(),
-                            points: $(cells[9]).text().trim(),
+                            pos: texts[0],
+                            team: texts[1],
+                            played: texts[2],
+                            won: texts[3],
+                            drawn: texts[4],
+                            lost: texts[5],
+                            goalsFor: texts[6] || '0',
+                            goalsAgainst: texts[7] || '0',
+                            goalDifference: texts[8] || '0',
+                            points: texts[texts.length - 1] // النقاط عادة تكون آخر عمود
                         });
                     }
                 });
-                return false;
+                return false; // توقف بعد الجدول الأول
             }
         });
 
